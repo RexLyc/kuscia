@@ -45,6 +45,8 @@ const (
 
 	defaultCRIRemoteEndpoint = "unix:///home/kuscia/containerd/run/containerd.sock"
 	defaultResolvConfig      = "/etc/resolv.conf"
+
+	defaultRootDir = "/home/kuscia"
 )
 
 const (
@@ -243,7 +245,6 @@ type AgentConfig struct {
 	// Todo: temporary solution for scql
 	KusciaAPIToken string
 	DomainKeyData  string
-	DomainKey      *rsa.PrivateKey
 
 	// CA configuration.
 	DomainCACertFile string
@@ -267,12 +268,12 @@ type AgentConfig struct {
 
 func DefaultStaticAgentConfig() *AgentConfig {
 	return &AgentConfig{
-		RootDir: common.DefaultKusciaHomePath,
+		RootDir: defaultRootDir,
 
 		LogsPath:   defaultLogsPath,
 		StdoutPath: defaultStdoutPath,
 
-		DiskPressurePath: path.Join(common.DefaultKusciaHomePath, common.DefaultDomainDataSourceLocalFSPath),
+		DiskPressurePath: path.Join(defaultRootDir, common.DefaultDomainDataSourceLocalFSPath),
 
 		Capacity: CapacityCfg{
 			Pods: defaultPodsCapacity,

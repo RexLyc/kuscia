@@ -38,7 +38,7 @@ docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/scri
 
 ```bash
 # --domain 参数传递的是节点 ID
-docker run -it --rm ${KUSCIA_IMAGE} kuscia init --mode autonomy --domain "alice" > autonomy_alice.yaml 2>&1 || cat autonomy_alice.yaml
+docker run -it --rm ${KUSCIA_IMAGE} kuscia init --mode autonomy --domain "alice" > autonomy_alice.yaml 2>&1 || autonomy_alice.yaml
 ```
 
 建议检查生成的文件，避免配置文件错误导致的部署启动问题。
@@ -187,9 +187,7 @@ docker exec -it ${USER}-kuscia-autonomy-bob kubectl get cdr bob-alice -o=jsonpat
 登录到安装 alice 的机器上，将默认的测试数据拷贝到之前部署目录的 ${USER}-kuscia-autonomy-alice/data 下
 
 ```bash
-docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/alice.csv > /tmp/alice.csv
-docker cp /tmp/alice.csv ${USER}-kuscia-autonomy-alice:/home/kuscia/var/storage/data/
-rm -rf /tmp/alice.csv
+docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/alice.csv > ${USER}-kuscia-autonomy-alice/data/alice.csv
 ```
 
 为 alice 的测试数据创建 domaindata
@@ -214,9 +212,7 @@ docker exec -it ${USER}-kuscia-autonomy-alice curl -X POST 'https://127.0.0.1:80
 登录到安装 bob 的机器上，将默认的测试数据拷贝到之前部署目录的 ${USER}-kuscia-autonomy-alice/data 下
 
 ```bash
-docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/bob.csv > /tmp/bob.csv
-docker cp /tmp/bob.csv ${USER}-kuscia-autonomy-bob:/home/kuscia/var/storage/data/
-rm -rf /tmp/bob.csv
+docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/bob.csv > ${USER}-kuscia-autonomy-bob/data/bob.csv
 ```
 
 为 bob 的测试数据创建 domaindata

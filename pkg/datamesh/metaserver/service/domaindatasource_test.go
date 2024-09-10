@@ -21,16 +21,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubefake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/secretflow/kuscia/pkg/common"
-	"github.com/secretflow/kuscia/pkg/confmanager/driver"
 	cmservice "github.com/secretflow/kuscia/pkg/confmanager/service"
 	kusciafake "github.com/secretflow/kuscia/pkg/crd/clientset/versioned/fake"
 	"github.com/secretflow/kuscia/pkg/datamesh/config"
-	"github.com/secretflow/kuscia/pkg/utils/tls"
+	"github.com/secretflow/kuscia/pkg/secretbackend"
+	_ "github.com/secretflow/kuscia/pkg/secretbackend/mem"
 	"github.com/secretflow/kuscia/proto/api/v1alpha1/datamesh"
 )
 
@@ -67,33 +64,17 @@ func TestQueryDomainDataSource(t *testing.T) {
 }
 
 func makeDomainDataSourceService(t *testing.T, conf *config.DataMeshConfig) IDomainDataSourceService {
-	return NewDomainDataSourceService(conf, makeConfigService(t))
+	return NewDomainDataSourceService(conf, makeMemConfigurationService(t))
 }
 
-func makeConfigService(t *testing.T) cmservice.IConfigService {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+func makeMemConfigurationService(t *testing.T) cmservice.IConfigurationService {
+	backend, err := secretbackend.NewSecretBackendWith("mem", map[string]any{})
 	assert.Nil(t, err)
-
-	encValue, err := tls.EncryptOAEP(&privateKey.PublicKey, []byte("test-value"))
+	assert.NotNil(t, backend)
+	configurationService, err := cmservice.NewConfigurationService(
+		backend, false,
+	)
 	assert.Nil(t, err)
-
-	configmap := v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "alice",
-			Name:      "domain-config",
-		},
-		Data: map[string]string{
-			"test-key": encValue,
-		},
-	}
-	kubeClient := kubefake.NewSimpleClientset(&configmap)
-	configService, err := cmservice.NewConfigService(context.Background(), &cmservice.ConfigServiceConfig{
-		DomainID:     "alice",
-		DomainKey:    privateKey,
-		Driver:       driver.CRDDriverType,
-		DisableCache: true,
-		KubeClient:   kubeClient,
-	})
-	assert.Nil(t, err)
-	return configService
+	assert.NotNil(t, configurationService)
+	return configurationService
 }

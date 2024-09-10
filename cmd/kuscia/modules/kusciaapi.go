@@ -66,6 +66,7 @@ func NewKusciaAPI(d *ModuleRuntimeConfigs) (Module, error) {
 	if d.RunMode != common.RunModeMaster {
 		kusciaAPIConfig.Initiator = d.DomainID
 	}
+
 	kusciaAPIConfig.RootCAKey = d.CAKey
 	kusciaAPIConfig.RootCA = d.CACert
 	kusciaAPIConfig.DomainKey = d.DomainKey

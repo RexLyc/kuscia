@@ -25,10 +25,6 @@ Kuscia 对操作系统、Docker 版本、处理器型号等有一些要求，部
 - **Ubuntu 16.04 及以上版本**
 - **Windows** (通过 [WSL2 上的 Ubuntu](https://docs.microsoft.com/en-us/windows/wsl/install-win10))
 
-## 内核版本要求
-支持的 Linux 内核版本为：
-- **Kernel 4.6 或更高版本**
-
 ## 资源要求
 部署 Kuscia 的最低资源为：
 - **1 核 CPU**

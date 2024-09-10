@@ -35,7 +35,7 @@ func TestRegisterDatasource(t *testing.T) {
 		KubeNamespace: "DomainDataUnitTestNamespace",
 		DomainKey:     key,
 	}
-	domainDataService := NewOperatorService(conf, makeConfigService(t))
+	domainDataService := NewOperatorService(conf, makeMemConfigurationService(t))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*11)
 	domainDataService.Start(ctx)
 	<-ctx.Done()

@@ -36,10 +36,10 @@ type operatorService struct {
 	datasourceSvc IDomainDataSourceService
 }
 
-func NewOperatorService(config *config.DataMeshConfig, configService service.IConfigService) IOperatorService {
+func NewOperatorService(config *config.DataMeshConfig, configurationService service.IConfigurationService) IOperatorService {
 	return &operatorService{
 		conf:          config,
-		datasourceSvc: NewDomainDataSourceService(config, configService),
+		datasourceSvc: NewDomainDataSourceService(config, configurationService),
 	}
 }
 

@@ -112,19 +112,9 @@ func (s domainDataService) CreateDomainData(ctx context.Context, request *kuscia
 			Status: utils.BuildErrorResponseStatus(pberrorcode.ErrorCode_KusciaAPIErrAuthFailed, err.Error()),
 		}
 	}
+
 	// normalization request
 	s.normalizationCreateRequest(request)
-
-	if len(request.DatasourceId) > 0 {
-		kusciaErrorCode, msg := CheckDomainDataSourceExists(s.conf.KusciaClient, request.DomainId, request.DatasourceId)
-
-		if pberrorcode.ErrorCode_SUCCESS != kusciaErrorCode {
-			return &kusciaapi.CreateDomainDataResponse{
-				Status: utils.BuildErrorResponseStatus(kusciaErrorCode, msg),
-			}
-		}
-	}
-
 	// verdor priority using incoming
 	customVendor := request.Vendor
 
@@ -203,16 +193,6 @@ func (s domainDataService) UpdateDomainData(ctx context.Context, request *kuscia
 	}
 
 	s.normalizationUpdateRequest(request, originalDomainData.Spec)
-	if len(request.DatasourceId) > 0 {
-		kusciaErrorCode, msg := CheckDomainDataSourceExists(s.conf.KusciaClient, request.DomainId, request.DatasourceId)
-
-		if pberrorcode.ErrorCode_SUCCESS != kusciaErrorCode {
-			return &kusciaapi.UpdateDomainDataResponse{
-				Status: utils.BuildErrorResponseStatus(kusciaErrorCode, msg),
-			}
-		}
-	}
-
 	// build modified domainData
 	labels := make(map[string]string)
 	for key, value := range originalDomainData.Labels {

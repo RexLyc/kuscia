@@ -48,14 +48,14 @@ type IDomainDataSourceService interface {
 }
 
 type domainDataSourceService struct {
-	conf          *config.DataMeshConfig
-	configService cmservice.IConfigService
+	conf                 *config.DataMeshConfig
+	configurationService cmservice.IConfigurationService
 }
 
-func NewDomainDataSourceService(config *config.DataMeshConfig, configService cmservice.IConfigService) IDomainDataSourceService {
+func NewDomainDataSourceService(config *config.DataMeshConfig, configurationService cmservice.IConfigurationService) IDomainDataSourceService {
 	return &domainDataSourceService{
-		conf:          config,
-		configService: configService,
+		conf:                 config,
+		configurationService: configurationService,
 	}
 }
 
@@ -181,14 +181,25 @@ func (s domainDataSourceService) QueryDomainDataSource(ctx context.Context, requ
 
 //nolint:dupl
 func (s domainDataSourceService) getDsInfoByKey(ctx context.Context, sourceType string, infoKey string) (*datamesh.DataSourceInfo, error) {
-	response := s.configService.QueryConfig(ctx, &confmanager.QueryConfigRequest{Key: infoKey})
+	response := s.configurationService.QueryConfiguration(ctx, &confmanager.QueryConfigurationRequest{
+		Ids: []string{infoKey},
+	}, s.conf.KubeNamespace)
 	if !utils.IsSuccessCode(response.Status.Code) {
 		nlog.Errorf("Query info key failed, code: %d, message: %s", response.Status.Code, response.Status.Message)
-		return nil, fmt.Errorf("query info key failed: %v", response.Status.Message)
+		return nil, fmt.Errorf("query info key failed")
 	}
-	info, err := decodeDataSourceInfo(sourceType, response.Value)
+	if response.Configurations == nil || response.Configurations[infoKey] == nil {
+		nlog.Errorf("Query info key success but info key %s not found", infoKey)
+		return nil, fmt.Errorf("query info key not found")
+	}
+	infoKeyResult := response.Configurations[infoKey]
+	if !infoKeyResult.Success {
+		nlog.Errorf("Query info key %s failed: %s", infoKey, infoKeyResult.ErrMsg)
+		return nil, fmt.Errorf("query info key failed")
+	}
+	info, err := decodeDataSourceInfo(sourceType, infoKeyResult.Content)
 	if err != nil {
-		nlog.Errorf("Decode datasource info for key %s failed: %v", infoKey, err)
+		nlog.Errorf("Decode datasource info for key %s fail: %v", infoKey, err)
 	}
 	return info, err
 }

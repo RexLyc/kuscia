@@ -27,6 +27,7 @@ import (
 	"github.com/secretflow/kuscia/pkg/common"
 	kusciafake "github.com/secretflow/kuscia/pkg/crd/clientset/versioned/fake"
 	"github.com/secretflow/kuscia/pkg/datamesh/config"
+	_ "github.com/secretflow/kuscia/pkg/secretbackend/mem"
 	"github.com/secretflow/kuscia/proto/api/v1alpha1"
 	"github.com/secretflow/kuscia/proto/api/v1alpha1/datamesh"
 )
@@ -221,7 +222,7 @@ func TestCheckCols(t *testing.T) {
 	cols := []*v1alpha1.DataColumn{
 		{
 			Name:        "col1",
-			Type:        "binary",
+			Type:        "int32",
 			Comment:     "",
 			NotNullable: false,
 		},

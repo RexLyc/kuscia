@@ -252,7 +252,6 @@ func (s domainRouteService) QueryDomainRoute(ctx context.Context, request *kusci
 			Port:       int32(port.Port),
 			Protocol:   string(port.Protocol),
 			PathPrefix: port.PathPrefix,
-			IsTLS:      port.IsTLS,
 		}
 	}
 	routeEndpoint := &kusciaapi.RouteEndpoint{

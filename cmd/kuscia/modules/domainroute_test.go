@@ -22,7 +22,7 @@ func Test_RunDomainRoute(t *testing.T) {
 	workDir := strings.SplitN(path, "cmd", 2)[0]
 	nlog.Infof("work dir is: %s", workDir)
 	assert.NoError(t, err)
-	dependency := mockModuleRuntimeConfig(t)
+	dependency := mockDependency(t)
 	dependency.RootDir = workDir
 	dependency.Master = kusciaconfig.MasterConfig{
 		APIServer: &kusciaconfig.APIServerConfig{

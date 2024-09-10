@@ -127,17 +127,13 @@ function register_default_app_image() {
     image_tag="latest"
   fi
   local app_type=$(echo "${image_repo}" | awk -F'/' '{print $NF}' | awk -F'-' '{print $1}')
-  if [[ ${app_type} != "psi" ]] && [[ ${app_type} != "dataproxy" ]] && [[ ${app_type} != "kuscia" ]]; then
+  if [[ ${app_type} != "psi" ]] && [[ ${app_type} != "dataproxy" ]]; then
      app_type="secretflow"
   fi
   if [[ ${app_type} == "secretflow" ]] || [[ ${app_type} == "psi" ]]; then
     app_image_template=$(sed "s!{{.SF_IMAGE_NAME}}!'${image_repo}'!g;
     s!{{.SF_IMAGE_TAG}}!'${image_tag}'!g" \
     < "${ROOT}/scripts/templates/app_image.${app_type}.yaml")
-  elif [[ ${app_type} == "kuscia" ]]; then
-    app_image_template=$(sed "s!{{.IMAGE_NAME}}!'${image_repo}'!g;
-    s!{{.IMAGE_TAG}}!'${image_tag}'!g" \
-    < "${ROOT}/scripts/templates/app_image.diagnose.yaml")
   else
     app_image_template=$(sed "s!{{.IMAGE_NAME}}!'${image_repo}'!g;
     s!{{.IMAGE_TAG}}!'${image_tag}'!g" \

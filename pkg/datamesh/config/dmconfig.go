@@ -18,7 +18,6 @@ import (
 	"crypto/rsa"
 
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/kubernetes"
 
 	kusciaclientset "github.com/secretflow/kuscia/pkg/crd/clientset/versioned"
 	"github.com/secretflow/kuscia/pkg/utils/kusciaconfig"
@@ -35,7 +34,7 @@ const (
 
 type DataMeshConfig struct {
 	RootDir        string
-	ListenAddr     string // default is empty
+	ListenAddr     string // default is empyt
 	HTTPPort       int32
 	GRPCPort       int32
 	Debug          bool
@@ -48,7 +47,6 @@ type DataMeshConfig struct {
 	DomainKey      *rsa.PrivateKey
 	TLS            config.TLSServerConfig
 	KusciaClient   kusciaclientset.Interface
-	KubeClient     kubernetes.Interface
 	KubeNamespace  string
 	DisableTLS     bool              `yaml:"disableTLS,omitempty"`
 	DataProxyList  []DataProxyConfig `yaml:"dataProxyList,omitempty"`
