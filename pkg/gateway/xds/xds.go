@@ -81,14 +81,6 @@ const (
 	DefaultRouteName         = "default"
 )
 
-const (
-	tokenAuthFilterName       = "envoy.filters.http.kuscia_token_auth"
-	cryptFilterName           = "envoy.filters.http.kuscia_crypt"
-	headerDecoratorFilterName = "envoy.filters.http.kuscia_header_decorator"
-	receiverFilterName        = "envoy.filters.http.kuscia_receiver"
-	pollerFilterName          = "envoy.filters.http.kuscia_poller"
-)
-
 var (
 	// IdleTimeout bounds the amount of time the request’s stream may be idle.
 	// After header decoding, the idle timeout will apply on downstream and upstream request events.
@@ -542,6 +534,8 @@ func dedupServicePrefix(svcNames []string) []string {
 	for _, svcName := range svcNames {
 		if idx := strings.LastIndex(svcName, "-"); idx > 0 {
 			m[svcName[:idx]] = true
+		} else {
+			m[svcName] = true
 		}
 	}
 	var res []string
@@ -817,6 +811,12 @@ func DeleteRoute(name, vhName, routeName string) error {
 	return nil
 }
 
+func GetHTTPFilterConfig(filterName, listenerName string) (*anypb.Any, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	return getHTTPFilterConfig(filterName, listenerName)
+}
+
 func getHTTPFilterConfig(filterName, listenerName string) (*anypb.Any, error) {
 	filterNames := []string{
 		filterName,
@@ -873,7 +873,7 @@ func GetHeaderDecorator() (*headerdecorator.HeaderDecorator, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	protoConfig, err := getHTTPFilterConfig(headerDecoratorFilterName, ExternalListener)
+	protoConfig, err := getHTTPFilterConfig(HeaderDecoratorFilterName, ExternalListener)
 	if err != nil {
 		return nil, err
 	}
@@ -888,7 +888,7 @@ func GetTokenAuth() (*kusciatoken.TokenAuth, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	protoConfig, err := getHTTPFilterConfig(tokenAuthFilterName, ExternalListener)
+	protoConfig, err := getHTTPFilterConfig(TokenAuthFilterName, ExternalListener)
 	if err != nil {
 		return nil, err
 	}

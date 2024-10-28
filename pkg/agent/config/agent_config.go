@@ -45,8 +45,6 @@ const (
 
 	defaultCRIRemoteEndpoint = "unix:///home/kuscia/containerd/run/containerd.sock"
 	defaultResolvConfig      = "/etc/resolv.conf"
-
-	defaultRootDir = "/home/kuscia"
 )
 
 const (
@@ -176,6 +174,8 @@ type K8sProviderCfg struct {
 	LabelsToAdd      map[string]string     `yaml:"labelsToAdd,omitempty"`
 	AnnotationsToAdd map[string]string     `yaml:"annotationsToAdd,omitempty"`
 	RuntimeClassName string                `yaml:"runtimeClassName,omitempty"`
+	EnableLogging    bool                  `yaml:"enableLogging,omitempty"`
+	LogDirectory     string                `yaml:"logDirectory,omitempty"`
 }
 
 type ProviderCfg struct {
@@ -245,6 +245,7 @@ type AgentConfig struct {
 	// Todo: temporary solution for scql
 	KusciaAPIToken string
 	DomainKeyData  string
+	DomainKey      *rsa.PrivateKey
 
 	// CA configuration.
 	DomainCACertFile string
@@ -268,12 +269,12 @@ type AgentConfig struct {
 
 func DefaultStaticAgentConfig() *AgentConfig {
 	return &AgentConfig{
-		RootDir: defaultRootDir,
+		RootDir: common.DefaultKusciaHomePath,
 
 		LogsPath:   defaultLogsPath,
 		StdoutPath: defaultStdoutPath,
 
-		DiskPressurePath: path.Join(defaultRootDir, common.DefaultDomainDataSourceLocalFSPath),
+		DiskPressurePath: path.Join(common.DefaultKusciaHomePath, common.DefaultDomainDataSourceLocalFSPath),
 
 		Capacity: CapacityCfg{
 			Pods: defaultPodsCapacity,

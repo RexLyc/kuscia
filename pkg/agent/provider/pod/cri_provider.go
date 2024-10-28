@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -207,6 +208,12 @@ func NewCRIProvider(dep *CRIProviderDependence) (kri.PodProvider, error) {
 			ImageRootDir:   dep.CRIProviderCfg.LocalRuntime.ImageRootDir,
 			SandboxRootDir: dep.CRIProviderCfg.LocalRuntime.SandboxRootDir,
 		}
+		if !filepath.IsAbs(processRuntimeDep.ImageRootDir) {
+			processRuntimeDep.ImageRootDir = path.Join(dep.RootDirectory, processRuntimeDep.ImageRootDir)
+		}
+		if !filepath.IsAbs(processRuntimeDep.SandboxRootDir) {
+			processRuntimeDep.SandboxRootDir = path.Join(dep.RootDirectory, processRuntimeDep.SandboxRootDir)
+		}
 		processRuntime, err := process.NewRuntime(processRuntimeDep)
 		if err != nil {
 			return nil, err
@@ -312,6 +319,8 @@ func (cp *CRIProvider) Start(ctx context.Context) error {
 	cp.pleg.Start(ctx.Done())
 
 	cp.startGarbageCollection()
+
+	cp.containerLogManager.Start()
 
 	cp.syncLoopIteration()
 
@@ -493,12 +502,13 @@ func (cp *CRIProvider) makeMounts(pod *v1.Pod, container *v1.Container, podVolum
 		}
 
 		if err := hook.Execute(&hook.MakeMountsContext{
-			Pod:           pod,
-			Container:     container,
-			HostPath:      &hostPath,
-			Mount:         &mount,
-			Envs:          envs,
-			PodVolumesDir: cp.GetPodVolumesDir(pod.UID),
+			Pod:             pod,
+			Container:       container,
+			HostPath:        &hostPath,
+			Mount:           &mount,
+			Envs:            envs,
+			PodVolumesDir:   cp.GetPodVolumesDir(pod.UID),
+			ResourceManager: cp.resourceManager,
 		}); err != nil {
 			return nil, err
 		}

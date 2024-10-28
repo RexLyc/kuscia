@@ -96,7 +96,7 @@ func (h *jobService) CreateJob(ctx context.Context, request *kusciaapi.CreateJob
 	kusciaTasks := make([]v1alpha1.KusciaTaskTemplate, len(tasks))
 	for i, task := range tasks {
 		// build kuscia task parties
-		kusicaParties := make([]v1alpha1.Party, len(task.Parties))
+		kusciaParties := make([]v1alpha1.Party, len(task.Parties))
 		for j, party := range task.Parties {
 			// build resources
 			limitResource := corev1.ResourceList{}
@@ -122,6 +122,8 @@ func (h *jobService) CreateJob(ctx context.Context, request *kusciaapi.CreateJob
 				}
 				resource = &corev1.ResourceRequirements{
 					Limits: limitResource,
+					// use limit as requests
+					Requests: limitResource,
 				}
 			}
 			var bandwidthLimits []v1alpha1.BandwidthLimit
@@ -144,7 +146,7 @@ func (h *jobService) CreateJob(ctx context.Context, request *kusciaapi.CreateJob
 				}
 			}
 
-			kusicaParties[j] = v1alpha1.Party{
+			kusciaParties[j] = v1alpha1.Party{
 				DomainID:       party.DomainId,
 				Role:           party.Role,
 				Resources:      resource,
@@ -158,9 +160,15 @@ func (h *jobService) CreateJob(ctx context.Context, request *kusciaapi.CreateJob
 			Dependencies:    task.Dependencies,
 			AppImage:        task.AppImage,
 			TaskInputConfig: task.TaskInputConfig,
-			Parties:         kusicaParties,
+			Parties:         kusciaParties,
 			Priority:        int(task.Priority),
+			Tolerable:       &task.Tolerable,
 		}
+
+		if task.ScheduleConfig != nil {
+			kusciaTask.ScheduleConfig = buildScheduleConfigForKusciaTask(task.ScheduleConfig)
+		}
+
 		kusciaTasks[i] = kusciaTask
 	}
 
@@ -195,6 +203,30 @@ func (h *jobService) CreateJob(ctx context.Context, request *kusciaapi.CreateJob
 		Data: &kusciaapi.CreateJobResponseData{
 			JobId: request.JobId,
 		},
+	}
+}
+
+func buildScheduleConfigForKusciaTask(sc *kusciaapi.ScheduleConfig) *v1alpha1.ScheduleConfig {
+	if sc == nil {
+		return nil
+	}
+
+	if sc.TaskTimeoutSeconds <= 0 {
+		sc.TaskTimeoutSeconds = 300
+	}
+
+	if sc.ResourceReservedSeconds <= 0 {
+		sc.ResourceReservedSeconds = 30
+	}
+
+	if sc.ResourceReallocationIntervalSeconds <= 0 {
+		sc.ResourceReallocationIntervalSeconds = 30
+	}
+
+	return &v1alpha1.ScheduleConfig{
+		ResourceReservedSeconds: int(sc.ResourceReservedSeconds),
+		LifecycleSeconds:        int(sc.TaskTimeoutSeconds),
+		RetryIntervalSeconds:    int(sc.ResourceReallocationIntervalSeconds),
 	}
 }
 
@@ -254,6 +286,11 @@ func (h *jobService) QueryJob(ctx context.Context, request *kusciaapi.QueryJobRe
 			TaskInputConfig: task.TaskInputConfig,
 			Priority:        int32(task.Priority),
 		}
+
+		if task.ScheduleConfig != nil {
+			taskConfig.ScheduleConfig = buildScheduleConfigForKusciaAPI(task.ScheduleConfig)
+		}
+
 		taskConfigs[i] = taskConfig
 	}
 
@@ -270,6 +307,30 @@ func (h *jobService) QueryJob(ctx context.Context, request *kusciaapi.QueryJobRe
 		},
 	}
 	return jobResponse
+}
+
+func buildScheduleConfigForKusciaAPI(sc *v1alpha1.ScheduleConfig) *kusciaapi.ScheduleConfig {
+	if sc == nil {
+		return nil
+	}
+
+	if sc.LifecycleSeconds <= 0 {
+		sc.LifecycleSeconds = 300
+	}
+
+	if sc.ResourceReservedSeconds <= 0 {
+		sc.ResourceReservedSeconds = 30
+	}
+
+	if sc.RetryIntervalSeconds <= 0 {
+		sc.RetryIntervalSeconds = 30
+	}
+
+	return &kusciaapi.ScheduleConfig{
+		TaskTimeoutSeconds:                  int32(sc.LifecycleSeconds),
+		ResourceReservedSeconds:             int32(sc.ResourceReservedSeconds),
+		ResourceReallocationIntervalSeconds: int32(sc.RetryIntervalSeconds),
+	}
 }
 
 func (h *jobService) DeleteJob(ctx context.Context, request *kusciaapi.DeleteJobRequest) *kusciaapi.DeleteJobResponse {

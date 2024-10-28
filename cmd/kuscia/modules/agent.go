@@ -64,6 +64,7 @@ func NewAgent(i *ModuleRuntimeConfigs) (Module, error) {
 	}
 	conf.APIVersion = k8sVersion
 	conf.AgentVersion = fmt.Sprintf("%v", meta.AgentVersionString())
+	conf.DomainKey = i.DomainKey
 	conf.DomainCACert = i.CACert
 	conf.DomainCAKey = i.CAKey
 	conf.DomainCACertFile = i.CACertFile

@@ -21,11 +21,10 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow/flight"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/secretflow/kuscia/pkg/datamesh/dataserver/utils"
 	"github.com/secretflow/kuscia/pkg/utils/nlog"
+	"github.com/secretflow/kuscia/pkg/utils/paths"
 	"github.com/secretflow/kuscia/proto/api/v1alpha1/datamesh"
 )
 
@@ -84,11 +83,16 @@ func (fio *BuiltinLocalFileIO) Write(ctx context.Context, rc *utils.DataMeshRequ
 	nlog.Infof("DomainData(%s) try save to file(%s)", data.DomaindataId, filePath)
 
 	if _, err := os.Stat(filePath); err == nil {
-		nlog.Infof("DomainData(%s) file(%s) file exists, can't upload", data.DomaindataId, filePath)
-		return status.Errorf(codes.AlreadyExists, "file exists, can't upload %s", data.RelativeUri)
+		nlog.Warnf("DomainData(%s) file(%s) file exists, will overwrite", data.DomaindataId, filePath)
 	}
 
-	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
+	dirPath := path.Dir(filePath)
+	if err := paths.EnsurePath(dirPath, true); err != nil {
+		nlog.Warnf("DomainData(%s) directory(%s) create failed with error: %s", data.DomaindataId, dirPath, err.Error())
+		return err
+	}
+
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
 		nlog.Warnf("DomainData(%s) opening file(%s) to write with error: %s", data.DomaindataId, filePath, err.Error())
 		return err

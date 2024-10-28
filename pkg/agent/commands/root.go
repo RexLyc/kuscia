@@ -61,8 +61,9 @@ func RunRootCommand(ctx context.Context, agentConfig *config.AgentConfig, kubeCl
 	// load plugins
 	pluginDependencies := &plugin.Dependencies{
 		AgentConfig: agentConfig,
+		KubeClient:  kubeClient,
 	}
-	if err := plugin.Init(pluginDependencies); err != nil {
+	if err := plugin.Init(ctx, pluginDependencies); err != nil {
 		return err
 	}
 
@@ -100,7 +101,7 @@ func RunRootCommand(ctx context.Context, agentConfig *config.AgentConfig, kubeCl
 		resourceInformerFactory.Core().V1().ConfigMaps().Lister().ConfigMaps(agentConfig.Namespace))
 
 	// init provider factory
-	providerFactory, err := provider.NewFactory(agentConfig)
+	providerFactory, err := provider.NewFactory(agentConfig, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to create provider factory, detail-> %v", err)
 	}

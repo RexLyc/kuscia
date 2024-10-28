@@ -286,13 +286,17 @@ docker exec -it ${USER}-kuscia-master kubectl get cdr
 登录到安装 alice 的机器上，将默认的测试数据拷贝到之前部署目录的 ${USER}-kuscia-lite-alice/data 下
 
 ```bash
-docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/alice.csv > ${USER}-kuscia-lite-alice/data/alice.csv
+docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/alice.csv > /tmp/alice.csv
+docker cp /tmp/alice.csv ${USER}-kuscia-lite-alice:/home/kuscia/var/storage/data/
+rm -rf /tmp/alice.csv
 ```
 
 登录到安装 bob 的机器上，将默认的测试数据拷贝到之前部署目录的 ${USER}-kuscia-lite-bob/data 下
 
 ```bash
-docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/bob.csv > ${USER}-kuscia-lite-bob/data/bob.csv
+docker pull $KUSCIA_IMAGE && docker run --rm $KUSCIA_IMAGE cat /home/kuscia/var/storage/data/bob.csv > /tmp/bob.csv
+docker cp /tmp/bob.csv ${USER}-kuscia-lite-bob:/home/kuscia/var/storage/data/
+rm -rf /tmp/bob.csv
 ```
 
 ##### 创建测试数据表

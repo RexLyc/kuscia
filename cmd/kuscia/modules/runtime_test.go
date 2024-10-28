@@ -23,6 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/secretflow/kuscia/cmd/kuscia/confloader"
@@ -112,7 +114,7 @@ func Test_InitDependencies(t *testing.T) {
 	NewModuleRuntimeConfigs(context.Background(), config)
 }
 
-func mockDependency(t *testing.T) *ModuleRuntimeConfigs {
+func mockModuleRuntimeConfig(t *testing.T) *ModuleRuntimeConfigs {
 	rootDir := t.TempDir()
 	domainKeyData, err := tls.GenerateKeyData()
 	assert.NoError(t, err)
@@ -127,8 +129,14 @@ func mockDependency(t *testing.T) *ModuleRuntimeConfigs {
 		CACertFile:     filepath.Join(rootDir, "ca.crt"),
 		KusciaAPI:      config.NewDefaultKusciaAPIConfig(rootDir),
 	})
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "domain-config",
+			Namespace: dependency.DomainID,
+		},
+	}
 	dependency.Clients = &kubeconfig.KubeClients{
-		KubeClient:   clientsetfake.NewSimpleClientset(),
+		KubeClient:   clientsetfake.NewSimpleClientset(cm),
 		KusciaClient: kusciaclientsetfake.NewSimpleClientset(),
 	}
 	return dependency

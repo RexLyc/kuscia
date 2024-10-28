@@ -69,6 +69,7 @@ func makeTestPendingHandler() *PendingHandler {
 		NamespacesLister: nsInformer.Lister(),
 		PodsLister:       kubeInformersFactory.Core().V1().Pods().Lister(),
 		ServicesLister:   kubeInformersFactory.Core().V1().Services().Lister(),
+		ConfigMapLister:  kubeInformersFactory.Core().V1().ConfigMaps().Lister(),
 		AppImagesLister:  appImageInformer.Lister(),
 	}
 
@@ -84,12 +85,9 @@ func TestPendingHandler_Handle(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, kusciaapisv1alpha1.TaskPending, kusciaTask.Status.Phase)
 
-	kusciaTask.Status.Conditions = nil
-	kusciaTask.Spec.Parties[0].AppImageRef = "not-exist-image"
 	_, err = handler.Handle(kusciaTask)
-	assert.Error(t, err)
-	createdCondition, _ := utilsres.GetKusciaTaskCondition(&kusciaTask.Status, kusciaapisv1alpha1.KusciaTaskCondResourceCreated, true)
-	assert.Equal(t, v1.ConditionFalse, createdCondition.Status)
+	assert.NoError(t, err)
+	assert.Equal(t, kusciaapisv1alpha1.TaskPending, kusciaTask.Status.Phase)
 
 	podTests := []struct {
 		namespace string
@@ -140,6 +138,13 @@ func TestPendingHandler_Handle(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+
+	kusciaTask.Status.Conditions = nil
+	kusciaTask.Spec.Parties[0].AppImageRef = "not-exist-image"
+	_, err = handler.Handle(kusciaTask)
+	assert.Error(t, err)
+	createdCondition, _ := utilsres.GetKusciaTaskCondition(&kusciaTask.Status, kusciaapisv1alpha1.KusciaTaskCondResourceCreated, true)
+	assert.Equal(t, v1.ConditionFalse, createdCondition.Status)
 }
 
 func Test_mergeDeployTemplate(t *testing.T) {
@@ -334,6 +339,7 @@ metadata:
     kuscia.secretflow/task-id: kusciatask-001
     kuscia.secretflow/task-resource: ""
     kuscia.secretflow/task-resource-group: kusciatask-001
+    kuscia.secretflow/config-template-value-cm-name: kusciatask-001-kuscia-gen-conf
   name: kusciatask-001-server-0
   namespace: domain-a
 spec:
@@ -345,16 +351,6 @@ spec:
     env:
     - name: HOME
       value: /root
-    - name: KUSCIA_DOMAIN_ID
-      value: domain-a
-    - name: TASK_ID
-      value: kusciatask-001
-    - name: TASK_CLUSTER_DEFINE
-      value: "{\"parties\":[], \"selfPartyIdx\":0, \"selfEndpointIdx\":0}"
-    - name: ALLOCATED_PORTS
-      value: "{\"ports\":[]}"
-    - name: TASK_INPUT_CONFIG
-      value: task input config
     image: test-image:0.0.1
     name: container-0
     ports:

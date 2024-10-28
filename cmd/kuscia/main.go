@@ -60,6 +60,7 @@ import (
 	kubectlcmd "k8s.io/kubectl/pkg/cmd"
 
 	"github.com/secretflow/kuscia/cmd/kuscia/container"
+	"github.com/secretflow/kuscia/cmd/kuscia/diagnose"
 	"github.com/secretflow/kuscia/cmd/kuscia/image"
 	"github.com/secretflow/kuscia/cmd/kuscia/kusciainit"
 	"github.com/secretflow/kuscia/cmd/kuscia/start"
@@ -84,6 +85,7 @@ func main() {
 	rootCmd.AddCommand(image.NewImageCommand(ctx))
 	rootCmd.AddCommand(container.NewContainerCommand(ctx))
 	rootCmd.AddCommand(start.NewStartCommand(ctx))
+	rootCmd.AddCommand(diagnose.NewDiagnoseCommand(ctx))
 	rootCmd.AddCommand(kusciainit.NewInitCommand(ctx))
 	rootCmd.AddCommand(kubectlcmd.NewDefaultKubectlCommand())
 	rootCmd.AddCommand(NewKernelCheckCommand(ctx))

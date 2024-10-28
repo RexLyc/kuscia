@@ -27,6 +27,7 @@ SF_IMAGE_REGISTRY=""
 NETWORK_NAME="kuscia-exchange"
 CLUSTER_NETWORK_NAME="kuscia-exchange-cluster"
 IMPORT_SF_IMAGE=secretflow
+IMPORT_DIAGNOSE_IMAGE=diagnose
 
 function log() {
   local log_content=$1
@@ -76,7 +77,7 @@ function pre_check() {
 }
 
 function init_k3s_data() {
-  local random=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 8)
+  local random=$(head /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 8)
   local kuscia_tmp_container="kuscia_tmp_${random}"
   OLD_DOMAIN_K3S_DB_DIR="${HOME}/kuscia/${domain_ctr}/k3s"
   if [ -d "${DOMAIN_K3S_DB_DIR}" ]; then
@@ -273,8 +274,8 @@ function generate_hostname() {
     local prefix=$1
     local local_hostname
     local_hostname=$(hostname)
-    local_hostname=$(echo "${local_hostname}" | tr '[:upper:]_.' '[:lower:]--' | sed 's/[^a-z0-9]$//g' )
-    echo "${prefix}-${local_hostname}" | cut -c 1-63
+    local_hostname=$(echo "${prefix}-${local_hostname}" | cut -c 1-63 | tr '[:upper:]_.' '[:lower:]--' | sed 's/^[^a-z0-9]//; s/[^a-z0-9]$//g' )
+    echo "${local_hostname}"
 }
 
 function copy_between_containers() {
@@ -343,12 +344,13 @@ function init_kuscia_conf_file() {
   local domain_ctr=$3
   local kuscia_conf_file=$4
   local master_endpoint=$5
+  local runtime=${RUNTIME:-"runc"}
   local master_ctr=$(echo "${master_endpoint}" | cut -d'/' -f3 | cut -d':' -f1)
   if [[ "${domain_type}" = "lite" ]]; then
     token=$(docker exec -it "${master_ctr}" scripts/deploy/add_domain_lite.sh "${domain_id}" | tr -d '\r\n')
-    docker run -it --rm ${KUSCIA_IMAGE} kuscia init --mode "${domain_type}" --domain "${domain_id}" --master-endpoint ${master_endpoint} --lite-deploy-token ${token} > "${kuscia_conf_file}" 2>&1 || cat "${kuscia_conf_file}"
+    docker run -it --rm ${KUSCIA_IMAGE} kuscia init --mode "${domain_type}" --domain "${domain_id}" -r "${runtime}" --master-endpoint ${master_endpoint} --lite-deploy-token ${token} > "${kuscia_conf_file}" 2>&1 || cat "${kuscia_conf_file}"
   else
-    docker run -it --rm ${KUSCIA_IMAGE} kuscia init --mode "${domain_type}" --domain "${domain_id}" > "${kuscia_conf_file}" 2>&1 || cat "${kuscia_conf_file}"
+    docker run -it --rm ${KUSCIA_IMAGE} kuscia init --mode "${domain_type}" --domain "${domain_id}" -r "${runtime}" > "${kuscia_conf_file}" 2>&1 || cat "${kuscia_conf_file}"
   fi
   [[ ${dataproxy} == "true" ]] && dataproxy_config ${kuscia_conf_file}
   wrap_kuscia_config_file ${kuscia_conf_file} "${interconn_protocol}"
@@ -523,7 +525,7 @@ function start_kuscia_container() {
   if [[ ${IMPORT_SF_IMAGE} = "none"  ]]; then
     echo -e "${GREEN}skip importing sf image${NC}"
   elif [[ ${IMPORT_SF_IMAGE} = "secretflow"  ]]; then
-    if [[ "$domain_type" != "master" ]] && [[ ${runtime} == "runc" ]]; then
+    if [[ "$domain_type" != "master" ]]; then
       docker run --rm $KUSCIA_IMAGE cat ${CTR_ROOT}/scripts/deploy/register_app_image.sh > ${DOMAIN_WORK_DIR}/register_app_image.sh && chmod u+x ${DOMAIN_WORK_DIR}/register_app_image.sh
       bash ${DOMAIN_WORK_DIR}/register_app_image.sh -c ${domain_ctr} -i ${SECRETFLOW_IMAGE} --import
       rm -rf ${DOMAIN_WORK_DIR}/register_app_image.sh
@@ -532,6 +534,18 @@ function start_kuscia_container() {
   if [[ "$domain_type" != "lite" ]]; then
     docker exec -it "${domain_ctr}" scripts/deploy/register_app_image.sh -i "${SECRETFLOW_IMAGE}" -m
     log "Create secretflow app image done"
+  fi
+
+  if [[ ${IMPORT_DIAGNOSE_IMAGE} = "diagnose"  ]]; then
+    if [[ "$domain_type" != "master" ]] && [[ ${runtime} == "runc" ]]; then
+      docker run --rm $KUSCIA_IMAGE cat ${CTR_ROOT}/scripts/deploy/register_app_image.sh > ${DOMAIN_WORK_DIR}/register_app_image.sh && chmod u+x ${DOMAIN_WORK_DIR}/register_app_image.sh
+      bash ${DOMAIN_WORK_DIR}/register_app_image.sh -c ${domain_ctr} -i ${KUSCIA_IMAGE} --import
+      rm -rf ${DOMAIN_WORK_DIR}/register_app_image.sh
+    fi
+    if [[ "$domain_type" != "lite" ]]; then
+      docker exec -it "${domain_ctr}" scripts/deploy/register_app_image.sh -i "${KUSCIA_IMAGE}" -m
+    fi
+    log "Create diagnose app image done"
   fi
 
   if [[ $dataproxy == true ]]; then
@@ -596,7 +610,7 @@ function start_data_proxy() {
    local counter=0
    local kusciaapi_endpoint="http://localhost:8082/api/v1/serving"
    # import dataproxy image
-   if [[ "$deploy_mode" != "master" ]] && [[ ${runtime} == "runc" ]]; then
+   if [[ "$deploy_mode" != "master" ]]; then
       docker run --rm $KUSCIA_IMAGE cat ${CTR_ROOT}/scripts/deploy/register_app_image.sh > ${DOMAIN_WORK_DIR}/register_app_image.sh && chmod u+x ${DOMAIN_WORK_DIR}/register_app_image.sh
       bash ${DOMAIN_WORK_DIR}/register_app_image.sh -c ${domain_ctr} -i ${DATAPROXY_IMAGE} --import
       rm -rf ${DOMAIN_WORK_DIR}/register_app_image.sh
@@ -645,7 +659,7 @@ function start_center_cluster() {
   local bob_domain=bob
   local ctr_prefix=${USER}-kuscia
   local master_ctr=${ctr_prefix}-master
-  local runtime="runc"
+  local runtime=${RUNTIME:-"runc"}
   local privileged_flag=" --privileged"
   local alice_ctr=${ctr_prefix}-lite-${alice_domain}
   local bob_ctr=${ctr_prefix}-lite-${bob_domain}
@@ -663,7 +677,7 @@ function start_p2p_cluster() {
   local alice_domain=alice
   local bob_domain=bob
   local ctr_prefix=${USER}-kuscia
-  local runtime="runc"
+  local runtime=${RUNTIME:-"runc"}
   local p2p_protocol=$1
   local privileged_flag=" --privileged"
   local alice_ctr=${ctr_prefix}-autonomy-${alice_domain}
@@ -681,7 +695,7 @@ function start_cxc_cluster() {
   local alice_domain=alice
   local bob_domain=bob
   local ctr_prefix=${USER}-kuscia
-  local runtime="runc"
+  local runtime=${RUNTIME:-"runc"}
   local privileged_flag=" --privileged"
   local alice_ctr=${ctr_prefix}-lite-cxc-${alice_domain}
   local bob_ctr=${ctr_prefix}-lite-cxc-${bob_domain}
@@ -729,7 +743,7 @@ function start_cxp_cluster() {
   local alice_domain=alice
   local bob_domain=bob
   local ctr_prefix=${USER}-kuscia
-  local runtime="runc"
+  local runtime=${RUNTIME:-"runc"}
   local privileged_flag=" --privileged"
   local alice_ctr=${ctr_prefix}-lite-cxp-${alice_domain}
   local bob_ctr=${ctr_prefix}-autonomy-cxp-${bob_domain}
@@ -870,6 +884,9 @@ for arg in "$@"; do
             ;;
         --data-proxy)
             dataproxy=true
+            ;;
+        --runp)
+            RUNTIME=runp
             ;;
         *)
             NEW_ARGS+=("$arg")

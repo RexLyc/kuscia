@@ -131,7 +131,9 @@ const (
 	ProtocolAnnotationKey     = "kuscia.secretflow/protocol"
 	ReadyTimeAnnotationKey    = "kuscia.secretflow/ready-time"
 
-	ConfigTemplateVolumesAnnotationKey = "kuscia.secretflow/config-template-volumes"
+	ConfigTemplateVolumesAnnotationKey         = "kuscia.secretflow/config-template-volumes"
+	ConfigTemplateValueAnnotationKey           = "kuscia.secretflow/config-template-value-cm-name"
+	ConfigValueCompressFieldsNameAnnotationKey = "kuscia.secretflow/config-value-compress-fields-name"
 
 	TaskResourceReservingTimestampAnnotationKey = "kuscia.secretflow/taskresource-reserving-timestamp"
 
@@ -159,6 +161,10 @@ const (
 	EnvKusciaAPIProtocol   = "KUSCIA_API_PROTOCOL"
 	EnvKusciaAPIToken      = "KUSCIA_API_TOKEN"
 	EnvKusciaDomainKeyData = "KUSCIA_DOMAIN_KEY_DATA"
+)
+
+const (
+	KusciaGenerateConfigMapFormat = "%s-kuscia-gen-conf"
 )
 
 const (
@@ -211,11 +217,6 @@ const (
 	UnSupportedDomainID string = "master"
 )
 
-const (
-	DefaultSecretBackendName = "default"
-	DefaultSecretBackendType = "mem"
-)
-
 type CommunicationProtocol string
 
 type Protocol string
@@ -249,4 +250,8 @@ const (
 const (
 	K3sRegex               = `^[a-z0-9]([a-z0-9.-]{0,61}[a-z0-9])?$`
 	ServiceNamePrefixRegex = `^[a-z]([-a-z0-9]{0,46}[a-z0-9])?$`
+)
+
+const (
+	DefaultKusciaHomePath = "/home/kuscia"
 )

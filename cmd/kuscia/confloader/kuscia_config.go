@@ -22,7 +22,9 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -30,6 +32,7 @@ import (
 
 	"github.com/secretflow/kuscia/pkg/agent/config"
 	"github.com/secretflow/kuscia/pkg/common"
+	cmconfig "github.com/secretflow/kuscia/pkg/confmanager/config"
 	dmconfig "github.com/secretflow/kuscia/pkg/datamesh/config"
 	kaconfig "github.com/secretflow/kuscia/pkg/kusciaapi/config"
 	"github.com/secretflow/kuscia/pkg/utils/nlog"
@@ -70,12 +73,16 @@ type RunkConfig struct {
 	Namespace      string   `yaml:"namespace"`
 	DNSServers     []string `yaml:"dnsServers"`
 	KubeconfigFile string   `yaml:"kubeconfigFile"`
+	EnableLogging  bool     `yaml:"enableLogging"`
+	LogDirectory   string   `yaml:"logDirectory"`
 }
 
 func (runk RunkConfig) overwriteK8sProviderCfg(k8sCfg config.K8sProviderCfg) config.K8sProviderCfg {
 	k8sCfg.Namespace = runk.Namespace
 	k8sCfg.KubeconfigFile = runk.KubeconfigFile
 	k8sCfg.DNS.Servers = runk.DNSServers
+	k8sCfg.EnableLogging = runk.EnableLogging
+	k8sCfg.LogDirectory = runk.LogDirectory
 	return k8sCfg
 }
 
@@ -106,16 +113,15 @@ type LogrotateConfig struct {
 }
 
 type AdvancedConfig struct {
-	ConfLoaders           []ConfigLoaderConfig      `yaml:"confLoaders,omitempty"`
-	SecretBackends        []SecretBackendConfig     `yaml:"secretBackends,omitempty"`
-	KusciaAPI             *kaconfig.KusciaAPIConfig `yaml:"kusciaAPI,omitempty"`
-	DataMesh              *dmconfig.DataMeshConfig  `yaml:"dataMesh,omitempty"`
-	DomainRoute           DomainRouteConfig         `yaml:"domainRoute,omitempty"`
-	Agent                 config.AgentConfig        `yaml:"agent,omitempty"`
-	Debug                 bool                      `yaml:"debug,omitempty"`
-	DebugPort             int                       `yaml:"debugPort,omitempty"`
-	EnableWorkloadApprove bool                      `yaml:"enableWorkloadApprove,omitempty"`
-	Logrotate             LogrotateConfig           `yaml:"logrotate,omitempty"`
+	KusciaAPI             *kaconfig.KusciaAPIConfig   `yaml:"kusciaAPI,omitempty"`
+	ConfManager           *cmconfig.ConfManagerConfig `yaml:"confManager,omitempty"`
+	DataMesh              *dmconfig.DataMeshConfig    `yaml:"dataMesh,omitempty"`
+	DomainRoute           DomainRouteConfig           `yaml:"domainRoute,omitempty"`
+	Agent                 config.AgentConfig          `yaml:"agent,omitempty"`
+	Debug                 bool                        `yaml:"debug,omitempty"`
+	DebugPort             int                         `yaml:"debugPort,omitempty"`
+	EnableWorkloadApprove bool                        `yaml:"enableWorkloadApprove,omitempty"`
+	Logrotate             LogrotateConfig             `yaml:"logrotate,omitempty"`
 }
 
 func LoadCommonConfig(configFile string) *CommonConfig {
@@ -147,18 +153,19 @@ func (lite *LiteKusciaConfig) OverwriteKusciaConfig(kusciaConfig *KusciaConfig) 
 	kusciaConfig.DomainID = lite.DomainID
 	kusciaConfig.CAKeyData = lite.DomainKeyData
 	kusciaConfig.DomainKeyData = lite.DomainKeyData
-	kusciaConfig.ConfLoaders = lite.ConfLoaders
-	kusciaConfig.SecretBackends = lite.SecretBackends
 	if lite.KusciaAPI != nil {
 		kusciaConfig.KusciaAPI = lite.KusciaAPI
 	}
 	kusciaConfig.Protocol = lite.Protocol
+	kusciaConfig.ConfManager = lite.ConfManager
 	kusciaConfig.DataMesh = lite.DataMesh
 	kusciaConfig.Agent.AllowPrivileged = lite.Agent.AllowPrivileged
 	kusciaConfig.Agent.Provider.Runtime = lite.Runtime
 	kusciaConfig.Agent.Provider.K8s = lite.Runk.overwriteK8sProviderCfg(lite.Agent.Provider.K8s)
 	kusciaConfig.Agent.Capacity = lite.Capacity
-
+	if kusciaConfig.Agent.Provider.K8s.LogDirectory == "" {
+		kusciaConfig.Agent.Provider.K8s.LogDirectory = filepath.Join(kusciaConfig.RootDir, common.StdoutPrefix)
+	}
 	if lite.ReservedResources.CPU != "" {
 		kusciaConfig.Agent.ReservedResources.CPU = lite.ReservedResources.CPU
 	}
@@ -182,6 +189,7 @@ func (lite *LiteKusciaConfig) OverwriteKusciaConfig(kusciaConfig *KusciaConfig) 
 	kusciaConfig.Image = lite.Image
 
 	overwriteKusciaConfigLogrotate(&kusciaConfig.Logrotate, &lite.AdvancedConfig.Logrotate)
+	overwriteKusciaConfigAgentLogrotate(&kusciaConfig.Agent.Provider.CRI, &lite.Agent.Provider.CRI, &lite.AdvancedConfig.Logrotate)
 }
 
 func (master *MasterKusciaConfig) OverwriteKusciaConfig(kusciaConfig *KusciaConfig) {
@@ -189,8 +197,6 @@ func (master *MasterKusciaConfig) OverwriteKusciaConfig(kusciaConfig *KusciaConf
 	kusciaConfig.LogLevel = master.LogLevel
 	kusciaConfig.CAKeyData = master.DomainKeyData
 	kusciaConfig.DomainKeyData = master.DomainKeyData
-	kusciaConfig.ConfLoaders = master.ConfLoaders
-	kusciaConfig.SecretBackends = master.SecretBackends
 	if master.KusciaAPI != nil {
 		kusciaConfig.KusciaAPI = master.KusciaAPI
 	}
@@ -216,7 +222,9 @@ func (autonomy *AutomonyKusciaConfig) OverwriteKusciaConfig(kusciaConfig *Kuscia
 	kusciaConfig.Agent.Provider.Runtime = autonomy.Runtime
 	kusciaConfig.Agent.Provider.K8s = autonomy.Runk.overwriteK8sProviderCfg(autonomy.Agent.Provider.K8s)
 	kusciaConfig.Agent.Capacity = autonomy.Capacity
-
+	if kusciaConfig.Agent.Provider.K8s.LogDirectory == "" {
+		kusciaConfig.Agent.Provider.K8s.LogDirectory = filepath.Join(kusciaConfig.RootDir, common.StdoutPrefix)
+	}
 	if autonomy.ReservedResources.CPU != "" {
 		kusciaConfig.Agent.ReservedResources.CPU = autonomy.ReservedResources.CPU
 	}
@@ -233,12 +241,11 @@ func (autonomy *AutomonyKusciaConfig) OverwriteKusciaConfig(kusciaConfig *Kuscia
 		}
 	}
 
-	kusciaConfig.ConfLoaders = autonomy.ConfLoaders
-	kusciaConfig.SecretBackends = autonomy.SecretBackends
 	if autonomy.KusciaAPI != nil {
 		kusciaConfig.KusciaAPI = autonomy.KusciaAPI
 	}
 	kusciaConfig.Protocol = autonomy.Protocol
+	kusciaConfig.ConfManager = autonomy.ConfManager
 	kusciaConfig.DataMesh = autonomy.DataMesh
 	if autonomy.DomainRoute.ExternalTLS != nil {
 		kusciaConfig.DomainRoute.ExternalTLS = autonomy.DomainRoute.ExternalTLS
@@ -250,6 +257,20 @@ func (autonomy *AutomonyKusciaConfig) OverwriteKusciaConfig(kusciaConfig *Kuscia
 	kusciaConfig.Image = autonomy.Image
 
 	overwriteKusciaConfigLogrotate(&kusciaConfig.Logrotate, &autonomy.AdvancedConfig.Logrotate)
+	overwriteKusciaConfigAgentLogrotate(&kusciaConfig.Agent.Provider.CRI, &autonomy.Agent.Provider.CRI, &autonomy.AdvancedConfig.Logrotate)
+}
+
+func overwriteKusciaConfigAgentLogrotate(kusciaAgentConfig, overwriteAgentLogrotate *config.CRIProviderCfg, overwriteLogrotate *LogrotateConfig) {
+	if overwriteAgentLogrotate != nil && overwriteAgentLogrotate.ContainerLogMaxFiles > 0 {
+		kusciaAgentConfig.ContainerLogMaxFiles = overwriteAgentLogrotate.ContainerLogMaxFiles
+	} else if overwriteLogrotate != nil && overwriteLogrotate.MaxFileSizeMB > 0 {
+		kusciaAgentConfig.ContainerLogMaxFiles = overwriteLogrotate.MaxFiles
+	}
+	if overwriteAgentLogrotate != nil && overwriteAgentLogrotate.ContainerLogMaxSize != "" {
+		kusciaAgentConfig.ContainerLogMaxSize = overwriteAgentLogrotate.ContainerLogMaxSize
+	} else if overwriteLogrotate != nil && overwriteLogrotate.MaxFiles > 0 {
+		kusciaAgentConfig.ContainerLogMaxSize = fmt.Sprintf("%dMi", overwriteLogrotate.MaxFileSizeMB)
+	}
 }
 
 func overwriteKusciaConfigLogrotate(kusciaConfig, overwriteLogrotate *LogrotateConfig) {

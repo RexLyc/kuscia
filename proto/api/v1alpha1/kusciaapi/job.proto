@@ -69,6 +69,21 @@ message Task {
   repeated string dependencies = 5; // dependencies tasks
   string task_input_config = 6; // task input config
   int32 priority = 7;
+  ScheduleConfig schedule_config = 8; // schedule config
+  // Tolerable default false. If this task failed,job will not be failed. tolerable task can not be other tasks dependencies.
+  bool tolerable = 9;
+}
+
+message ScheduleConfig {
+  // The task timeout duration. If the task exceeds the timeout, it will be marked as failed.
+  // Optional
+  int32 task_timeout_seconds = 1;
+  // The maximum time each party's application can occupy resources when scheduling tasks.
+  // Optional
+  int32 resource_reserved_seconds = 2;
+  // The interval before the next attempt to reserve task resources when task scheduling fails due to unsuccessful resource reservation.
+  // Optional
+  int32 resource_reallocation_interval_seconds = 3;
 }
 
 message Party {
@@ -215,6 +230,7 @@ message TaskConfig {
   repeated string dependencies = 5; // dependencies tasks
   string task_input_config = 6; // task input config
   int32 priority = 7;
+  ScheduleConfig schedule_config = 8; // schedule config
 }
 
 message PartyStageStatus {

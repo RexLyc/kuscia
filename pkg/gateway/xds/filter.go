@@ -30,46 +30,46 @@ import (
 )
 
 const (
-	grpcHTTP1BridgeName        = "envoy.filters.http.grpc_http1_bridge"
-	kusciaGressName            = "envoy.filters.http.kuscia_gress"
-	routerName                 = "envoy.filters.http.router"
-	grpcHTTP1ReverseBridgeName = "envoy.filters.http.grpc_http1_reverse_bridge"
-	kusciaTokenAuthName        = "envoy.filters.http.kuscia_token_auth"
-	kusciaHeaderDecoratorName  = "envoy.filters.http.kuscia_header_decorator"
-	kusciaCryptName            = "envoy.filters.http.kuscia_crypt"
-	kusciaReceiverName         = "envoy.filters.http.kuscia_receiver"
-	bandwidthLimitName         = "envoy.filters.http.bandwidth_limit"
-	kusciaPollerName           = "envoy.filters.http.kuscia_poller"
+	GrpcHTTP1BridgeName        = "envoy.filters.http.grpc_http1_bridge"
+	KusciaGressName            = "envoy.filters.http.kuscia_gress"
+	RouterName                 = "envoy.filters.http.router"
+	GrpcHTTP1ReverseBridgeName = "envoy.filters.http.grpc_http1_reverse_bridge"
+	TokenAuthFilterName        = "envoy.filters.http.kuscia_token_auth"
+	HeaderDecoratorFilterName  = "envoy.filters.http.kuscia_header_decorator"
+	CryptFilterName            = "envoy.filters.http.kuscia_crypt"
+	ReceiverFilterName         = "envoy.filters.http.kuscia_receiver"
+	BandwidthLimitName         = "envoy.filters.http.bandwidth_limit"
+	PollerFilterName           = "envoy.filters.http.kuscia_poller"
 )
 
 var (
 	internalFilterPriority = map[string]int{
-		grpcHTTP1ReverseBridgeName: 0,
-		kusciaGressName:            1,
-		bandwidthLimitName:         2,
-		kusciaCryptName:            3,
-		kusciaReceiverName:         4,
-		kusciaPollerName:           5,
-		routerName:                 6,
+		GrpcHTTP1ReverseBridgeName: 0,
+		KusciaGressName:            1,
+		BandwidthLimitName:         2,
+		CryptFilterName:            3,
+		ReceiverFilterName:         4,
+		PollerFilterName:           5,
+		RouterName:                 6,
 	}
 
 	externalFilterPriority = map[string]int{
-		grpcHTTP1BridgeName:       0,
-		kusciaGressName:           1,
-		kusciaTokenAuthName:       2,
-		kusciaHeaderDecoratorName: 3,
-		kusciaCryptName:           4,
-		kusciaReceiverName:        5,
-		routerName:                6,
+		GrpcHTTP1BridgeName:       0,
+		KusciaGressName:           1,
+		TokenAuthFilterName:       2,
+		HeaderDecoratorFilterName: 3,
+		CryptFilterName:           4,
+		ReceiverFilterName:        5,
+		RouterName:                6,
 	}
 
 	mutableFilters = map[string]bool{
-		kusciaTokenAuthName:       true,
-		kusciaHeaderDecoratorName: true,
-		kusciaCryptName:           true,
-		kusciaReceiverName:        true,
-		bandwidthLimitName:        true,
-		kusciaPollerName:          true,
+		TokenAuthFilterName:       true,
+		HeaderDecoratorFilterName: true,
+		CryptFilterName:           true,
+		ReceiverFilterName:        true,
+		BandwidthLimitName:        true,
+		PollerFilterName:          true,
 	}
 
 	// internal only filters config
@@ -87,7 +87,7 @@ var (
 
 	internalFilterMap = map[string]protoreflect.ProtoMessage{}
 	externalFilterMap = map[string]protoreflect.ProtoMessage{
-		kusciaTokenAuthName: &kusciatoken.TokenAuth{},
+		TokenAuthFilterName: &kusciatoken.TokenAuth{},
 	}
 )
 
@@ -97,9 +97,9 @@ func UpdateEncryptRules(rule *kusciacrypt.CryptRule, selfNamespace string, add b
 
 	encryptRules = updateCryptRules(rule, encryptRules, add)
 	if len(encryptRules) == 0 {
-		delete(internalFilterMap, cryptFilterName)
+		delete(internalFilterMap, CryptFilterName)
 	} else {
-		internalFilterMap[cryptFilterName] = &kusciacrypt.Crypt{
+		internalFilterMap[CryptFilterName] = &kusciacrypt.Crypt{
 			SelfNamespace: selfNamespace,
 			EncryptRules:  encryptRules,
 		}
@@ -113,9 +113,9 @@ func UpdateDecryptRules(rule *kusciacrypt.CryptRule, selfNamespace string, add b
 
 	decryptRules = updateCryptRules(rule, decryptRules, add)
 	if len(decryptRules) == 0 {
-		delete(externalFilterMap, cryptFilterName)
+		delete(externalFilterMap, CryptFilterName)
 	} else {
-		externalFilterMap[cryptFilterName] = &kusciacrypt.Crypt{
+		externalFilterMap[CryptFilterName] = &kusciacrypt.Crypt{
 			SelfNamespace: selfNamespace,
 			DecryptRules:  decryptRules,
 		}
@@ -129,9 +129,9 @@ func UpdateAppendHeaders(header *headerdecorator.HeaderDecorator_SourceHeader, a
 
 	appendHeaders = updateAppendHeaders(header, appendHeaders, add)
 	if len(appendHeaders) == 0 {
-		delete(externalFilterMap, headerDecoratorFilterName)
+		delete(externalFilterMap, HeaderDecoratorFilterName)
 	} else {
-		externalFilterMap[headerDecoratorFilterName] = &headerdecorator.HeaderDecorator{
+		externalFilterMap[HeaderDecoratorFilterName] = &headerdecorator.HeaderDecorator{
 			AppendHeaders: appendHeaders,
 		}
 	}
@@ -144,7 +144,7 @@ func UpdateSourceTokens(token *kusciatoken.TokenAuth_SourceToken, add bool) erro
 
 	sourceTokens = updateSourceTokens(token, sourceTokens, add)
 	// always keep token auth filter
-	externalFilterMap[tokenAuthFilterName] = &kusciatoken.TokenAuth{
+	externalFilterMap[TokenAuthFilterName] = &kusciatoken.TokenAuth{
 		SourceTokenList: sourceTokens,
 	}
 	return updateHTTPFilters(externalFilterMap, ExternalListener)
@@ -156,14 +156,14 @@ func UpdateReceiverRules(newRule *kusciareceiver.ReceiverRule, selfNamespace str
 
 	receiverRules = updateReceiverRules(newRule, receiverRules, add)
 	if len(receiverRules) == 0 {
-		delete(internalFilterMap, receiverFilterName)
-		delete(externalFilterMap, receiverFilterName)
+		delete(internalFilterMap, ReceiverFilterName)
+		delete(externalFilterMap, ReceiverFilterName)
 	} else {
-		internalFilterMap[receiverFilterName] = &kusciareceiver.Receiver{
+		internalFilterMap[ReceiverFilterName] = &kusciareceiver.Receiver{
 			SelfNamespace: selfNamespace,
 			Rules:         receiverRules,
 		}
-		externalFilterMap[receiverFilterName] = &kusciareceiver.Receiver{
+		externalFilterMap[ReceiverFilterName] = &kusciareceiver.Receiver{
 			SelfNamespace: selfNamespace,
 			Rules:         receiverRules,
 		}
@@ -183,9 +183,9 @@ func UpdatePollAppendHeaders(header *kusciapoller.Poller_SourceHeader, add bool)
 
 	pollAppendHeaders = updatePollerHeaders(header, pollAppendHeaders, add)
 	if len(pollAppendHeaders) == 0 {
-		delete(internalFilterMap, pollerFilterName)
+		delete(internalFilterMap, PollerFilterName)
 	} else {
-		internalFilterMap[pollerFilterName] = &kusciapoller.Poller{
+		internalFilterMap[PollerFilterName] = &kusciapoller.Poller{
 			AppendHeaders: pollAppendHeaders,
 		}
 	}
@@ -199,15 +199,15 @@ func UpdateBandwidthLimit(vhName string, taskID string, serviceName string, limi
 
 	if add {
 		updateVirtualHostLimit(vhName, taskID, serviceName, *limitKbps)
-		if _, ok := internalFilterMap[bandwidthLimitName]; !ok {
-			internalFilterMap[bandwidthLimitName] = &bandwidth_limitv3.BandwidthLimit{
+		if _, ok := internalFilterMap[BandwidthLimitName]; !ok {
+			internalFilterMap[BandwidthLimitName] = &bandwidth_limitv3.BandwidthLimit{
 				StatPrefix: "kuscia_bandwidth_limit",
 			}
 		}
 	} else {
 		deleteVirtualHostLimit(vhName, taskID, serviceName)
 		if len(virtualHostLimits) == 0 {
-			delete(internalFilterMap, bandwidthLimitName)
+			delete(internalFilterMap, BandwidthLimitName)
 		}
 	}
 	return updateHTTPFilters(internalFilterMap, InternalListener)

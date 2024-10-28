@@ -16,6 +16,7 @@ package builtin
 
 import (
 	"context"
+	csvEncoding "encoding/csv"
 	"fmt"
 	"io"
 
@@ -122,6 +123,11 @@ func DataProxyContentToFlightStreamBinary(data *datamesh.DomainData, r io.Reader
 
 // DataFlow(Table): Client --> DataProxy --> RemoteStorage(FileSystem/OSS/...)
 func FlightStreamToDataProxyContentCSV(data *datamesh.DomainData, w io.Writer, reader *flight.Reader) error {
+
+	if reader == nil {
+		return status.Errorf(codes.Internal, "flight reader is not allowed to be nil")
+	}
+
 	//generate arrow schema
 	schema, err := utils.GenerateArrowSchema(data)
 	if err != nil {
@@ -141,16 +147,32 @@ func FlightStreamToDataProxyContentCSV(data *datamesh.DomainData, w io.Writer, r
 		}
 		iCount++
 	}
+	if iCount == 0 {
+		// manually write header to avoid read header EOF
+		headers := make([]string, len(reader.Schema().Fields()))
+		for i := range headers {
+			headers[i] = reader.Schema().Field(i).Name
+		}
+		fileWriter := csvEncoding.NewWriter(w)
+		if writeErr := fileWriter.Write(headers); writeErr != nil {
+			nlog.Warnf("Domaindata(%s) write empty csv header failed: %s", data.GetDomaindataId(), writeErr.Error())
+			return writeErr
+		}
+		fileWriter.Flush()
+	}
 	nlog.Infof("Domaindata(%s) write total row: %d.", data.GetDomaindataId(), iCount)
 	if err := reader.Err(); err != nil {
 		nlog.Warnf("Domaindata(%s) read from arrow flight failed with error: %s", data.GetDomaindataId(), err.Error())
-		return err
 	}
 	return nil
 }
 
 // DataFlow(Binary): Client --> DataProxy --> RemoteStorage(FileSystem/OSS/...)
 func FlightStreamToDataProxyContentBinary(data *datamesh.DomainData, w io.Writer, reader *flight.Reader) error {
+	if reader == nil {
+		return status.Errorf(codes.Internal, "flight reader is not allowed to be nil")
+	}
+
 	for reader.Next() {
 		cnt := reader.Record()
 		cnt.Retain()

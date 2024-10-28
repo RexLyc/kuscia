@@ -29,6 +29,7 @@ import (
 	"github.com/secretflow/kuscia/pkg/confmanager/handler/httphandler/certificate"
 	cmservice "github.com/secretflow/kuscia/pkg/confmanager/service"
 	apiconfig "github.com/secretflow/kuscia/pkg/kusciaapi/config"
+	handlerconfig "github.com/secretflow/kuscia/pkg/kusciaapi/handler/httphandler/config"
 	"github.com/secretflow/kuscia/pkg/kusciaapi/handler/httphandler/domain"
 	"github.com/secretflow/kuscia/pkg/kusciaapi/handler/httphandler/domaindata"
 	"github.com/secretflow/kuscia/pkg/kusciaapi/handler/httphandler/domaindatagrant"
@@ -58,9 +59,10 @@ type httpServerBean struct {
 	config          *apiconfig.KusciaAPIConfig
 	externalGinBean *beans.GinBean
 	internalGinBean *beans.GinBean
+	cmConfigService cmservice.IConfigService
 }
 
-func NewHTTPServerBean(config *apiconfig.KusciaAPIConfig) *httpServerBean { // nolint: golint
+func NewHTTPServerBean(config *apiconfig.KusciaAPIConfig, cmConfigService cmservice.IConfigService) *httpServerBean { // nolint: golint
 	return &httpServerBean{
 		config: config,
 		externalGinBean: &beans.GinBean{
@@ -80,6 +82,7 @@ func NewHTTPServerBean(config *apiconfig.KusciaAPIConfig) *httpServerBean { // n
 			Debug:         config.Debug,
 			GinBeanConfig: convertToInternalGinConf(config),
 		},
+		cmConfigService: cmConfigService,
 	}
 }
 
@@ -162,12 +165,13 @@ func (s *httpServerBean) registerGroupRoutes(e framework.ConfBeanRegistry, bean 
 	jobService := service.NewJobService(s.config)
 	domainService := service.NewDomainService(s.config)
 	routeService := service.NewDomainRouteService(s.config)
-	domainDataSourceService := service.NewDomainDataSourceService(s.config, cmservice.Exporter.ConfigurationService())
+	domainDataSourceService := service.NewDomainDataSourceService(s.config, s.cmConfigService)
 	domainDataService := service.NewDomainDataService(s.config)
 	domainDataGrantService := service.NewDomainDataGrantService(s.config)
 	servingService := service.NewServingService(s.config)
 	healthService := service.NewHealthService()
 	certService := newCertService(s.config)
+	configService := service.NewConfigService(s.config, s.cmConfigService)
 	// define router groups
 	groupsRouters := []*router.GroupRouters{
 		// job group routes
@@ -431,6 +435,36 @@ func (s *httpServerBean) registerGroupRoutes(e framework.ConfBeanRegistry, bean 
 				},
 			},
 		},
+		{
+			Group: "api/v1/config",
+			Routes: []*router.Router{
+				{
+					HTTPMethod:   http.MethodPost,
+					RelativePath: "create",
+					Handlers:     []gin.HandlerFunc{protoDecorator(e, handlerconfig.NewCreateConfigHandler(configService))},
+				},
+				{
+					HTTPMethod:   http.MethodPost,
+					RelativePath: "query",
+					Handlers:     []gin.HandlerFunc{protoDecorator(e, handlerconfig.NewQueryConfigHandler(configService))},
+				},
+				{
+					HTTPMethod:   http.MethodPost,
+					RelativePath: "update",
+					Handlers:     []gin.HandlerFunc{protoDecorator(e, handlerconfig.NewUpdateConfigHandler(configService))},
+				},
+				{
+					HTTPMethod:   http.MethodPost,
+					RelativePath: "delete",
+					Handlers:     []gin.HandlerFunc{protoDecorator(e, handlerconfig.NewDeleteConfigHandler(configService))},
+				},
+				{
+					HTTPMethod:   http.MethodPost,
+					RelativePath: "batchQuery",
+					Handlers:     []gin.HandlerFunc{protoDecorator(e, handlerconfig.NewBatchQueryConfigHandler(configService))},
+				},
+			},
+		},
 		// health group routes
 		{
 			Group: "",
@@ -467,13 +501,10 @@ func newCertService(config *apiconfig.KusciaAPIConfig) cmservice.ICertificateSer
 		certValue = config.DomainCertValue
 		privateKey = config.DomainKey
 	}
-	certService, err := cmservice.NewCertificateService(cmservice.CertConfig{
-		CertValue:  certValue,
-		PrivateKey: privateKey,
+	certService := cmservice.NewCertificateService(&cmservice.CertificateServiceConfig{
+		DomainCertValue: certValue,
+		DomainKey:       privateKey,
 	})
-	if err != nil {
-		nlog.Fatalf("Init certificate service failed, error: %v", err)
-	}
 	return certService
 }
 
